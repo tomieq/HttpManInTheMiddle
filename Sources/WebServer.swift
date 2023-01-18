@@ -40,21 +40,22 @@ public class WebServer {
         }
         
         let reqID = self.getRequestID()
+        var logBuffer = "Request \(reqID)\n------------------------------------------"
 
         var finalResponse: HttpResponse = .serviceUnavailable
         if let url = URL(string: destinationPath) {
-            Logger.v(self.logTag, "[\(reqID)] Request forward url: \(originalRequest.method) \(destinationPath)")
+            logBuffer.append("\n\(originalRequest.method) \(destinationPath)")
             let headersString = originalRequest.headers.map { "\($0.key) = \($0.value)" }.joined(separator: "\n\t")
-            Logger.v(self.logTag, "[\(reqID)] Request headers: \n{\n\t\(headersString)\n}")
+            logBuffer.append("\n➡️ Request headers: \n{\n\t\(headersString)\n}")
             let body = Data(originalRequest.body)
             if let bodyString = String(data: body, encoding: .utf8) {
                 if bodyString.isEmpty {
-                    Logger.v(self.logTag, "[\(reqID)] Request body: nil")
+                    logBuffer.append("\n➡️ Request body: nil")
                 } else {
-                    Logger.v(self.logTag, "[\(reqID)] Request body: \n\(bodyString.prettyJSON)")
+                    logBuffer.append("\n➡️ Request body: \n\(bodyString.prettyJSON)")
                 }
             } else {
-                Logger.v(self.logTag, "[\(reqID)] Request body: binary \(self.readableSize(size: body.count))")
+                logBuffer.append("\n➡️ Request body: binary \(self.readableSize(size: body.count))")
             }
             var request = URLRequest(url: url)
             request.httpMethod = originalRequest.method.rawValue
@@ -63,12 +64,12 @@ public class WebServer {
             request.httpBody = Data(originalRequest.body)
             URLSession.shared.dataTask(with: request) { [weak sem, weak self] data, response, error in
                 if let error = error {
-                    Logger.v(self?.logTag, "[\(reqID)] Response error: \(error)")
+                    logBuffer.append("\n➡️ Response error: \(error)")
                 } else if let httpResponse = response as? HTTPURLResponse {
                     let responseCode = httpResponse.statusCode
-                    Logger.v(self?.logTag, "[\(reqID)] Response code: \(responseCode)")
+                    logBuffer.append("\n➡️ Response code: \(responseCode)")
                     let headersString = httpResponse.allHeaderFields.map { "\($0.key) = \($0.value)" }.joined(separator: "\n\t")
-                    Logger.v(self?.logTag, "[\(reqID)] Response headers: \n{\n\t\(headersString)\n}")
+                    logBuffer.append("\n➡️ Response headers: \n{\n\t\(headersString)\n}")
                     
                     httpResponse.allHeaderFields.forEach {
                         if let key = $0.key as? String, let value = $0.value as? String {
@@ -78,12 +79,12 @@ public class WebServer {
                     if let body = data {
                         if let bodyString = String(data: body, encoding: .utf8) {
                             if bodyString.isEmpty {
-                                Logger.v(self?.logTag, "[\(reqID)] Response body: nil")
+                                logBuffer.append("\n➡️ Response body: nil")
                             } else {
-                                Logger.v(self?.logTag, "[\(reqID)] Response body: \n\(bodyString.prettyJSON)")
+                                logBuffer.append("\n➡️ Response body: \n\(bodyString.prettyJSON)")
                             }
                         } else {
-                            Logger.v(self?.logTag, "[\(reqID)] Response body: binary \(self?.readableSize(size: body.count) ?? "")")
+                            logBuffer.append("\n➡️ Response body: binary \(self?.readableSize(size: body.count) ?? "")")
                         }
                     }
                     switch responseCode {
@@ -101,6 +102,7 @@ public class WebServer {
             }.resume()
         }
         _ = sem.wait(timeout:.now() + 15)
+        Logger.v(self.logTag, logBuffer)
         return finalResponse
     }
 
