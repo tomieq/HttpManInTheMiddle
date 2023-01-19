@@ -88,12 +88,17 @@ public class WebServer {
                         }
                     }
                     switch responseCode {
-                    case 200:
-                        finalResponse = .ok(.data(data ?? Data()))
-                    case 202:
-                        finalResponse = .accepted(data.isNil ? nil : .data(data!))
-                    case 404:
-                        finalResponse = .notFound(data.isNil ? nil : .data(data!))
+                    case 200:   finalResponse = .ok(.data(data ?? Data()))
+                    case 201:   finalResponse = .created(.data(data ?? Data()))
+                    case 202:   finalResponse = .accepted(data.isNil ? nil : .data(data!))
+                    case 204:   finalResponse = .noContent
+                    case 400:   finalResponse = .badRequest(data.isNil ? nil : .data(data!))
+                    case 401:   finalResponse = .unauthorized(data.isNil ? nil : .data(data!))
+                    case 403:   finalResponse = .forbidden(data.isNil ? nil : .data(data!))
+                    case 404:   finalResponse = .notFound(data.isNil ? nil : .data(data!))
+                    case 406:   finalResponse = .notAcceptable(data.isNil ? nil : .data(data!))
+                    case 500:   finalResponse = .internalServerError(data.isNil ? nil : .data(data!))
+                    case 502:   finalResponse = .badGateway
                     default:
                         break
                     }
