@@ -1,0 +1,18 @@
+        
+          <h3>Deploy new proxy server</h3>
+          <form id="deployForm">
+            <div class="form-group">
+              <label for="destinationUrl">Destination url</label>
+              <input type="text" class="form-control" id="destinationUrl" name="destinationUrl" placeholder="https://">
+              <small class="form-text text-muted">Address you want to forward the traffic to</small>
+            </div>
+            <div class="form-group">
+              <label for="localPort">Local port</label>
+              <input type="text" class="form-control" id="localPort" name="localPort" placeholder="">
+                  <small class="form-text text-muted">Local port on which server will be listening</small>
+            </div>
+            <div class="form-group">
+                <br>
+                <button type="button" class="btn btn-primary" onclick="formSubmit('/deploy', $('#deployForm'))">Deploy server</button>
+            </div>
+          </form>

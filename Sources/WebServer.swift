@@ -2,151 +2,126 @@
 //  WebServer.swift
 //  
 //
-//  Created by Tomasz on 18/01/2023.
+//  Created by Tomasz on 19/01/2023.
 //
 
 import Foundation
 import Swifter
 
-public class WebServer {
-    private let logTag = "👁️ Spy"
+class WebServer {
+    private let logTag = "🧠 WebServer"
     private let server: HttpServer
-    private let destinationServer: String
-    private static let requestCounterSemaphone = DispatchSemaphore(value : 1)
-    private static var requestCounter = 0
+    private let workingDir: String
+    private var staticDir: String { "\(self.workingDir)/Resources/static" }
+    private var dynamicDir: String { "\(self.workingDir)/Resources/dynamic" }
+    private var proxyServers: [UInt16: ProxyServer] = [:]
 
-    public init(destinationServer: String) {
+    init(workingDir: String) {
         self.server = HttpServer()
-        self.destinationServer = destinationServer.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        self.workingDir = workingDir
         self.initEndpoints()
     }
 
-    public func start(port: UInt16) {
+    func start(port: UInt16) {
         do {
             try self.server.start(port, forceIPv4: true)
-            Logger.v(self.logTag, "HttpProxy has started on port = \(try self.server.port()), destinationServer = \(self.destinationServer)")
+            Logger.v(self.logTag, "Started on port = \(try self.server.port()), workingDir = \(self.workingDir)")
         } catch {
-            Logger.e(self.logTag, "HttpProxy start error: \(error)")
+            Logger.e(self.logTag, "Start error: \(error)")
         }
     }
 
-    private func forwardRequest(originalRequest: HttpRequest, responseHeaders: HttpResponseHeaders) -> HttpResponse {
-        let sem = DispatchSemaphore(value : 0)
-        var destinationPath = "\(self.destinationServer)\(originalRequest.path)"
-        let paramQuery = originalRequest.queryParams.map { "\($0.0)=\($0.1)" }.joined(separator: "&")
-        if !paramQuery.isEmpty {
-            destinationPath.append("?")
-            destinationPath.append(paramQuery)
-        }
-        
-        let reqID = self.getRequestID()
-        var logBuffer = "Request \(reqID)\n------------------------------------------"
-
-        var finalResponse: HttpResponse = .serviceUnavailable
-        if let url = URL(string: destinationPath) {
-            logBuffer.append("\n\(originalRequest.method) \(destinationPath)")
-            let headersString = originalRequest.headers.map { "\($0.key) = \($0.value)" }.joined(separator: "\n\t")
-            logBuffer.append("\n➡️ Request headers: \n{\n\t\(headersString)\n}")
-            let body = Data(originalRequest.body)
-            if let bodyString = String(data: body, encoding: .utf8) {
-                if bodyString.isEmpty {
-                    logBuffer.append("\n➡️ Request body: nil")
-                } else {
-                    logBuffer.append("\n➡️ Request body: \n\(bodyString.prettyJSON)")
-                }
-            } else {
-                logBuffer.append("\n➡️ Request body: binary \(self.readableSize(size: body.count))")
-            }
-            var request = URLRequest(url: url)
-            request.httpMethod = originalRequest.method.rawValue
-            request.allHTTPHeaderFields = self.prepareHttpHeaders(original: originalRequest.headers)
-            
-            request.httpBody = Data(originalRequest.body)
-            URLSession.shared.dataTask(with: request) { [weak sem, weak self] data, response, error in
-                if let error = error {
-                    logBuffer.append("\n➡️ Response error: \(error)")
-                } else if let httpResponse = response as? HTTPURLResponse {
-                    let responseCode = httpResponse.statusCode
-                    logBuffer.append("\n➡️ Response code: \(responseCode)")
-                    let headersString = httpResponse.allHeaderFields.map { "\($0.key) = \($0.value)" }.joined(separator: "\n\t")
-                    logBuffer.append("\n➡️ Response headers: \n{\n\t\(headersString)\n}")
-                    
-                    httpResponse.allHeaderFields.forEach {
-                        if let key = $0.key as? String, let value = $0.value as? String {
-                            responseHeaders.addHeader(key, value)
-                        }
-                    }
-                    if let body = data {
-                        if let bodyString = String(data: body, encoding: .utf8) {
-                            if bodyString.isEmpty {
-                                logBuffer.append("\n➡️ Response body: nil")
-                            } else {
-                                logBuffer.append("\n➡️ Response body: \n\(bodyString.prettyJSON)")
-                            }
-                        } else {
-                            logBuffer.append("\n➡️ Response body: binary \(self?.readableSize(size: body.count) ?? "")")
-                        }
-                    }
-                    switch responseCode {
-                    case 200:   finalResponse = .ok(.data(data ?? Data()))
-                    case 201:   finalResponse = .created(.data(data ?? Data()))
-                    case 202:   finalResponse = .accepted(data.isNil ? nil : .data(data!))
-                    case 204:   finalResponse = .noContent
-                    case 400:   finalResponse = .badRequest(data.isNil ? nil : .data(data!))
-                    case 401:   finalResponse = .unauthorized(data.isNil ? nil : .data(data!))
-                    case 403:   finalResponse = .forbidden(data.isNil ? nil : .data(data!))
-                    case 404:   finalResponse = .notFound(data.isNil ? nil : .data(data!))
-                    case 406:   finalResponse = .notAcceptable(data.isNil ? nil : .data(data!))
-                    case 500:   finalResponse = .internalServerError(data.isNil ? nil : .data(data!))
-                    case 502:   finalResponse = .badGateway
-                    default:
-                        break
-                    }
-                }
-                sem?.signal()
-            }.resume()
-        }
-        _ = sem.wait(timeout:.now() + 15)
-        Logger.v(self.logTag, logBuffer)
-        return finalResponse
-    }
 
     private func initEndpoints() {
-
-        self.server.middleware.append { [weak self] originalRequest, responseHeaders in
-            guard let self = self else {
+        self.server.GET["/"] = { [unowned self] request, headers in
+            request.disableKeepAlive = true
+            do {
+                let template = Template(raw: try String(contentsOfFile: "\(self.dynamicDir)/index.tpl.html"))
+                return template.asResponse()
+            } catch {
+                Logger.e(self.logTag, "Error \(error)")
                 return .internalServerError()
             }
-            return self.forwardRequest(originalRequest: originalRequest, responseHeaders: responseHeaders)
         }
-    }
-    
-    private func prepareHttpHeaders(original: [String: String]) -> [String: String] {
-        var headers = original
-        headers["host"] = nil
-        headers["content-length"] = nil
-        return headers
+        
+        self.server.POST["/deploy"] = { [unowned self] request, headers in
+            request.disableKeepAlive = true
+            let formData = request.flatFormData()
+            guard let portString = formData["localPort"], let destinationUrl = formData["destinationUrl"],
+                  let port = UInt16(portString) else {
+                Logger.e(self.logTag, "Missing form fields")
+                return .ok(.javaScript("uiShowError('Missing fields')"))
+            }
+            Logger.v(self.logTag, "Deploying new proxy server on port \(port) to \(destinationUrl)")
+            let server = ProxyServer(destinationServer: destinationUrl)
+            server.start(port: port)
+            self.proxyServers[port] = server
+            return .ok(.javaScript("uiShowSuccess('Server deployed!'); loadHtmlThenRunScripts('/deployList', [], '#mainContent')"))
+        }
+        
+        self.server.GET["/terminate"] = { [unowned self] request, headers in
+            request.disableKeepAlive = true
+            guard let portString = request.queryParam("port"), let port = UInt16(portString) else {
+                return .ok(.javaScript("uiShowError('Missing port')"))
+            }
+            Logger.v(self.logTag, "Terminating proxy server on port \(port)")
+            self.proxyServers[port]?.stop()
+            self.proxyServers[port] = nil
+            return .ok(.javaScript("uiShowSuccess('Server terminated!'); loadHtmlThenRunScripts('/deployList', [], '#mainContent')"))
+        }
+        
+        self.server.GET["/deployForm"] = { [unowned self] request, headers in
+            request.disableKeepAlive = true
+            do {
+                let template = Template(raw: try String(contentsOfFile: "\(self.dynamicDir)/deployForm.tpl.html"))
+                return template.asResponse()
+            } catch {
+                Logger.e(self.logTag, "Error \(error)")
+                return .internalServerError()
+            }
+        }
+        
+        self.server.GET["/deployList"] = { [unowned self] request, headers in
+            request.disableKeepAlive = true
+            do {
+                let template = Template(raw: try String(contentsOfFile: "\(self.dynamicDir)/deployList.tpl.html"))
+                for proxy in self.proxyServers {
+                    template.assign(variables: ["port": "\(proxy.key)",
+                                                "counter": "\(proxy.value.stats)",
+                                                "url": proxy.value.destinationServer], inNest: "entry")
+                }
+                return template.asResponse()
+            } catch {
+                Logger.e(self.logTag, "Error \(error)")
+                return .internalServerError()
+            }
+        }
+        
+        self.server.notFoundHandler = { [unowned self] request, responseHeaders in
+            request.disableKeepAlive = true
+            let filePath = "\(self.staticDir)\(request.path)"
+            if FileManager.default.fileExists(atPath: filePath) {
+                guard let file = try? filePath.openForReading() else {
+                    Logger.e(self.logTag, "Could not open `\(filePath)`")
+                    return .notFound()
+                }
+                let mimeType = filePath.mimeType()
+                responseHeaders.addHeader("Content-Type", mimeType)
+
+                if let attr = try? FileManager.default.attributesOfItem(atPath: filePath),
+                   let fileSize = attr[FileAttributeKey.size] as? UInt64 {
+                    responseHeaders.addHeader("Content-Length", String(fileSize))
+                }
+
+                return .raw(200, "OK", { writer in
+                    try writer.write(file)
+                    file.close()
+                })
+            }
+            Logger.e(self.logTag, "File `\(filePath)` doesn't exist")
+            return .notFound()
+        }
     }
 
-    private func readableSize(size: Int) -> String {
-        var convertedValue: Double = Double(size)
-        var multiplyFactor = 0
-        let tokens = ["bytes", "KB", "MB", "GB", "TB", "PB",  "EB",  "ZB", "YB"]
-        while convertedValue > 1024 {
-            convertedValue /= 1024
-            multiplyFactor += 1
-        }
-        return String(format: "%4.1f %@", convertedValue, tokens[multiplyFactor])
-    }
-    
-    private func getRequestID() -> String {
-        Self.requestCounterSemaphone.wait()
-        Self.requestCounter += 1
-        var id = "\(Self.requestCounter)"
-        while id.count < 3 {
-            id = "0\(id)"
-        }
-        Self.requestCounterSemaphone.signal()
-        return id
-    }
 }
+

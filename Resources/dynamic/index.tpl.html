@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ManInTheMiddle</title>
+    <link href="{relativePath}/bootstrap-5.2.3-dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="{relativePath}/noty.css" rel="stylesheet">
+  </head>
+  <body>
+    <div class="container">
+        <div class="row">
+            <div class="col-12">
+                <hr>
+                <strong>EPS</strong> Elastic Proxy Server
+                <br><br>
+            </div>
+        </div>
+    <div class="row">
+        <div class="col-2">
+            <button type="button" class="btn btn-light btn-sm w-100" onclick="loadHtmlThenRunScripts('/deployList', [], '#mainContent')">Server list</button>
+            <button type="button" class="btn btn-light btn-sm w-100" onclick="loadHtmlThenRunScripts('/deployForm', [], '#mainContent')">Deploy new server</button>
+            <button type="button" class="btn btn-light btn-sm w-100">Traffic live preview</button>
+        </div>
+        <div class="col-10" id="mainContent">
+            <p><strong>Elastic Proxy Server</strong> enables watching http traffic between devices.</p>
+        </div>
+    </div>
+  </div>
+    
+    <script src="{relativePath}bootstrap-5.2.3-dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4" crossorigin="anonymous"></script>
+    <script src="{relativePath}jquery-3.6.1.min.js" crossorigin="anonymous"></script>
+    <script src="{relativePath}loaderUtils.js" crossorigin="anonymous"></script>
+    <script src="{relativePath}loader.js" crossorigin="anonymous"></script>
+    <script src="{relativePath}noty.min.js" crossorigin="anonymous"></script>
+    <script src="{relativePath}notifications.js" crossorigin="anonymous"></script>
+    <script src="{relativePath}websocket.js" crossorigin="anonymous"></script>
+  </body>
+</html>

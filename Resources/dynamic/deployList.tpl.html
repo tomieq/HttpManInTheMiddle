@@ -1,0 +1,23 @@
+        
+<h3>Deployed servers</h3>
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th scope="col">Port</th>
+      <th scope="col">Destination</th>
+      <th scope="col">Counter</th>
+      <th scope="col">Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+  [START entry]
+    <tr>
+      <th scope="row">{port}</th>
+      <td>{url}</td>
+      <td>{counter}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="runScripts(['/terminate?port={port}'])">Terminate</button></td>
+    </tr>
+  [END entry]
+  </tbody>
+</table>
+
