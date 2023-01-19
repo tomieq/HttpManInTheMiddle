@@ -30,9 +30,36 @@ class WebSocketHandler {
     construct() {
     }
     
-    incoming(text) {
-        console.log("Incoming websocket data: " + text);
-        $("#sensor").append("<img src='"+text+"' class='img-fluid img-thumbnail' style='max-width:250px;'/>")
+    incoming(json) {
+        console.log("Incoming websocket data: " + json);
+        const traffic = JSON.parse(json);
+        var id = "details" + traffic.id
+        var html = "<tr><td onclick='$(\"#"+id+"\").toggle()'><span style='font-size:12px;' class='btn btn-sm btn-info'>" + traffic.id + "</span></td><td style='font-size:12px;'>" + traffic.method + " " + traffic.path + "</td>";
+        html += "<td>" + traffic.responseCode + "</td>";
+        html += "</tr>";
+        
+        var table = "<table class='table table-sm' width='100%'><tbody>";
+        table += "<tr>"
+        table += "<td class='w-50 align-top' style='font-size:10px;'><h6>Request headers</h6><pre>" + JSON.stringify(traffic.requestHeaders, null, 2) + "</pre></td>";
+        table += "<td class='w-50 align-top' style='font-size:10px;'><h6>Response headers</h6><pre>" + JSON.stringify(traffic.responseHeaders, null, 2) + "</pre></td>";
+        table += "</tr>";
+        table += "<tr>"
+        table += "<td class='w-50 align-top' style='font-size:10px;'><h6>Request body</h6><pre style='overflow-x:auto; width:500px;' >" + traffic.requestBody + "</pre></td>";
+        table += "<td class='w-50 align-top' style='font-size:10px;'><h6>Response body</h6><pre style='overflow-x:auto; width:500px;'>" + traffic.responseBody + "</pre></td>";
+        table += "</tr>";
+        table += "</tbody></table>";
+        
+        
+        html += "<tr style='display: none' id='"+id+"'><td colspan=3>" + table + "</td></tr>";
+        $("#trafficTable").append(html);
+    }
+    
+    nl2br(str, is_xhtml) {
+        if (typeof str === 'undefined' || str === null) {
+            return '';
+        }
+        var breakTag = (is_xhtml || typeof is_xhtml === 'undefined') ? '<br />' : '<br>';
+        return (str + '').replace(/([^>\r\n]?)(\r\n|\n\r|\r|\n)/g, '$1' + breakTag + '$2');
     }
 }
 

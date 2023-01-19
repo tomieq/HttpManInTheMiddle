@@ -15,6 +15,7 @@ class ProxyServer {
     var stats = 0
     private static let requestCounterSemaphone = DispatchSemaphore(value : 1)
     private static var requestCounter = 0
+    var trafficSink: ((TrafficData) -> Void)?
 
     init(destinationServer: String) {
         self.server = HttpServer()
@@ -53,19 +54,23 @@ class ProxyServer {
         let reqID = self.getRequestID()
         var logBuffer = "Request \(reqID)\n------------------------------------------"
 
+        let trafficData = TrafficData(id: reqID, path: destinationPath, method: originalRequest.method.rawValue)
         var finalResponse: HttpResponse = .serviceUnavailable
         if let url = URL(string: destinationPath) {
             logBuffer.append("\n\(originalRequest.method) \(destinationPath)")
             let headersString = originalRequest.headers.map { "\($0.key) = \($0.value)" }.joined(separator: "\n\t")
             logBuffer.append("\n➡️: Request headers: \n{\n\t\(headersString)\n}")
+            trafficData.requestHeaders = originalRequest.headers
             let body = Data(originalRequest.body)
             if let bodyString = String(data: body, encoding: .utf8) {
+                trafficData.requestBody = bodyString.prettyJSON
                 if bodyString.isEmpty {
                     logBuffer.append("\n➡️: Request body: nil")
                 } else {
                     logBuffer.append("\n➡️: Request body: \n\(bodyString.prettyJSON)")
                 }
             } else {
+                trafficData.requestBody = "binary \(self.readableSize(size: body.count))"
                 logBuffer.append("\n➡️: Request body: binary \(self.readableSize(size: body.count))")
             }
             var request = URLRequest(url: url)
@@ -76,25 +81,29 @@ class ProxyServer {
             URLSession.shared.dataTask(with: request) { [weak sem, weak self] data, response, error in
                 if let error = error {
                     logBuffer.append("\n➡️: Response error: \(error)")
+                    trafficData.error = error.localizedDescription
                 } else if let httpResponse = response as? HTTPURLResponse {
                     let responseCode = httpResponse.statusCode
+                    trafficData.responseCode = responseCode
                     logBuffer.append("\n➡️: Response code: \(responseCode)")
                     let headersString = httpResponse.allHeaderFields.map { "\($0.key) = \($0.value)" }.joined(separator: "\n\t")
                     logBuffer.append("\n➡️: Response headers: \n{\n\t\(headersString)\n}")
-                    
                     httpResponse.allHeaderFields.forEach {
                         if let key = $0.key as? String, let value = $0.value as? String {
+                            trafficData.responseHeaders[key] = value
                             responseHeaders.addHeader(key, value)
                         }
                     }
                     if let body = data {
                         if let bodyString = String(data: body, encoding: .utf8) {
+                            trafficData.responseBody = bodyString.prettyJSON
                             if bodyString.isEmpty {
                                 logBuffer.append("\n➡️: Response body: nil")
                             } else {
                                 logBuffer.append("\n➡️: Response body: \n\(bodyString.prettyJSON)")
                             }
                         } else {
+                            trafficData.responseBody = "binary \(self?.readableSize(size: body.count) ?? "")"
                             logBuffer.append("\n➡️: Response body: binary \(self?.readableSize(size: body.count) ?? "")")
                         }
                     }
@@ -118,6 +127,7 @@ class ProxyServer {
             }.resume()
         }
         _ = sem.wait(timeout:.now() + 15)
+        self.trafficSink?(trafficData)
         Logger.v(self.logTag, logBuffer)
         return finalResponse
     }

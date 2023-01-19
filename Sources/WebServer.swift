@@ -15,6 +15,7 @@ class WebServer {
     private var staticDir: String { "\(self.workingDir)/Resources/static" }
     private var dynamicDir: String { "\(self.workingDir)/Resources/dynamic" }
     private var proxyServers: [UInt16: ProxyServer] = [:]
+    private var websocketSessions: [WebSocketSession] = []
 
     init(workingDir: String) {
         self.server = HttpServer()
@@ -54,6 +55,7 @@ class WebServer {
             }
             Logger.v(self.logTag, "Deploying new proxy server on port \(port) to \(destinationUrl)")
             let server = ProxyServer(destinationServer: destinationUrl)
+            server.trafficSink = self.trafficDataHandler(_:)
             server.start(port: port)
             self.proxyServers[port] = server
             return .ok(.javaScript("uiShowSuccess('Server deployed!'); loadHtmlThenRunScripts('/deployList', [], '#mainContent')"))
@@ -97,6 +99,41 @@ class WebServer {
             }
         }
         
+        self.server.GET["/traffic"] = { [unowned self] request, headers in
+            request.disableKeepAlive = true
+            do {
+                let template = Template(raw: try String(contentsOfFile: "\(self.dynamicDir)/trafficList.tpl.html"))
+                return template.asResponse()
+            } catch {
+                Logger.e(self.logTag, "Error \(error)")
+                return .internalServerError()
+            }
+        }
+        
+        self.server.GET["/websocket.js"] = { [unowned self] request, _ in
+            request.disableKeepAlive = true
+            do {
+                let template = Template(raw: try String(contentsOfFile: "\(self.dynamicDir)/websocket.js"))
+                template.assign(variables: ["url": "ws://127.0.0.1:\((try? server.port()) ?? 0)/websocket"])
+                return .ok(.javaScript(template.output()))
+            } catch {
+                Logger.e(self.logTag, "Error \(error)")
+                return .internalServerError()
+            }
+        }
+
+        self.server.GET["/websocket"] = websocket(text: { (session, text) in
+        }, binary: { (session, binary) in
+        }, pong: { (_, _) in
+            // Got a pong frame
+        }, connected: { [unowned self] session in
+            Logger.v(self.logTag, "New websocket client connected")
+            self.websocketSessions.append(session)
+        }, disconnected: { [unowned self] session in
+            Logger.v(self.logTag, "New websocket client disconnected")
+            self.websocketSessions.remove(object: session)
+        })
+
         self.server.notFoundHandler = { [unowned self] request, responseHeaders in
             request.disableKeepAlive = true
             let filePath = "\(self.staticDir)\(request.path)"
@@ -123,5 +160,10 @@ class WebServer {
         }
     }
 
+    private func trafficDataHandler(_ data: TrafficData) {
+        for session in self.websocketSessions {
+            session.writeText(data.json)
+        }
+    }
 }
 
