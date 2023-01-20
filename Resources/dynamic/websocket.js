@@ -44,8 +44,8 @@ class WebSocketHandler {
         table += "<td class='w-50 align-top' style='font-size:10px;'><h6>Response headers</h6><pre>" + JSON.stringify(traffic.responseHeaders, null, 2) + "</pre></td>";
         table += "</tr>";
         table += "<tr>"
-        table += "<td class='w-50 align-top' style='font-size:10px;'><h6>Request body</h6><pre style='overflow-x:auto; width:500px;' >" + traffic.requestBody + "</pre></td>";
-        table += "<td class='w-50 align-top' style='font-size:10px;'><h6>Response body</h6><pre style='overflow-x:auto; width:500px;'>" + traffic.responseBody + "</pre></td>";
+        table += "<td class='w-50 align-top' style='font-size:10px;'><h6>Request body</h6><pre style='overflow-x:auto; width:500px;' >" + traffic.requestBody.escape() + "</pre></td>";
+        table += "<td class='w-50 align-top' style='font-size:10px;'><h6>Response body</h6><pre style='overflow-x:auto; width:500px;'>" + traffic.responseBody.escape() + "</pre></td>";
         table += "</tr>";
         table += "</tbody></table>";
         
@@ -53,13 +53,15 @@ class WebSocketHandler {
         html += "<tr style='display: none' id='"+id+"'><td colspan=3>" + table + "</td></tr>";
         $("#trafficTable").append(html);
     }
-    
-    nl2br(str, is_xhtml) {
-        if (typeof str === 'undefined' || str === null) {
-            return '';
-        }
-        var breakTag = (is_xhtml || typeof is_xhtml === 'undefined') ? '<br />' : '<br>';
-        return (str + '').replace(/([^>\r\n]?)(\r\n|\n\r|\r|\n)/g, '$1' + breakTag + '$2');
-    }
 }
 
+String.prototype.escape = function() {
+    var tagsToReplace = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;'
+    };
+    return this.replace(/[&<>]/g, function(tag) {
+        return tagsToReplace[tag] || tag;
+    });
+};
