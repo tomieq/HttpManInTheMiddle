@@ -33,8 +33,9 @@ class WebSocketHandler {
     incoming(json) {
         console.log("Incoming websocket data: " + json);
         const traffic = JSON.parse(json);
+        
         var id = "details" + traffic.id
-        var html = "<tr><td onclick='$(\"#"+id+"\").toggle()'><span style='font-size:12px;' class='btn btn-sm btn-info'>" + traffic.id + "</span></td><td style='font-size:12px;'>" + traffic.method + " " + traffic.path + "</td>";
+        var html = "<tr><td onclick='$(\"#"+id+"\").toggle()'><span style='font-size:12px;' class='btn btn-sm btn-info'>" + traffic.id + "</span></td><td style='font-size:12px;'>" + traffic.method + " " + traffic.path + "<br><span style='font-size:10px;'>" + new Date().timeNow() + "</span></td>";
         html += "<td>" + traffic.responseCode + "</td>";
         html += "</tr>";
         
@@ -65,3 +66,7 @@ String.prototype.escape = function() {
         return tagsToReplace[tag] || tag;
     });
 };
+
+Date.prototype.timeNow = function () {
+     return ((this.getHours() < 10)?"0":"") + this.getHours() +":"+ ((this.getMinutes() < 10)?"0":"") + this.getMinutes() +":"+ ((this.getSeconds() < 10)?"0":"") + this.getSeconds();
+}
