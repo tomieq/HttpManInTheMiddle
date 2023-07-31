@@ -7,6 +7,7 @@
       <th scope="col">Destination</th>
       <th scope="col">Counter</th>
       <th scope="col">Actions</th>
+      <th scope="col">Delay</th>
     </tr>
   </thead>
   <tbody>
@@ -16,6 +17,7 @@
       <td>{url}</td>
       <td>{counter}</td>
       <td><button class="btn btn-danger btn-sm" onclick="runScripts(['/terminate?port={port}'])">Terminate</button></td>
+      <td><input type="text" size=4 class="form-control" placeholder="" value="{delay}" oninput="runScripts(['/delay?port={port}&delay='+this.value])"></td>
     </tr>
   [END entry]
   </tbody>

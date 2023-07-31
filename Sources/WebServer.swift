@@ -72,6 +72,19 @@ class WebServer {
             return .ok(.javaScript("uiShowSuccess('Server terminated!'); loadHtmlThenRunScripts('/deployList', [], '#mainContent')"))
         }
         
+        self.server.GET["/delay"] = { [unowned self] request, headers in
+            request.disableKeepAlive = true
+            guard let portString = request.queryParam("port"), let port = UInt16(portString) else {
+                return .ok(.javaScript("uiShowError('Missing port')"))
+            }
+            guard let delayString = request.queryParam("delay"), let delay = TimeInterval(delayString) else {
+                return .ok(.javaScript("uiShowError('Missing delay')"))
+            }
+            Logger.v(self.logTag, "Updating proxy server on port \(port) with delay: \(delay)")
+            self.proxyServers[port]?.delay = delay
+            return .ok(.javaScript("uiShowSuccess('Server`s delay updated!');"))
+        }
+        
         self.server.GET["/deployForm"] = { [unowned self] request, headers in
             request.disableKeepAlive = true
             do {
@@ -90,6 +103,7 @@ class WebServer {
                 for proxy in self.proxyServers {
                     template.assign(variables: ["port": "\(proxy.key)",
                                                 "counter": "\(proxy.value.stats)",
+                                                "delay": "\(Int(proxy.value.delay ?? 0))",
                                                 "url": proxy.value.destinationServer], inNest: "entry")
                 }
                 return template.asResponse()

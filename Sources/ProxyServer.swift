@@ -16,6 +16,7 @@ class ProxyServer {
     private static let requestCounterSemaphone = DispatchSemaphore(value : 1)
     private static var requestCounter = 0
     var trafficSink: ((TrafficData) -> Void)?
+    var delay: TimeInterval? = nil
 
     init(destinationServer: String) {
         self.server = HttpServer()
@@ -43,8 +44,14 @@ class ProxyServer {
     }
 
     private func forwardRequest(originalRequest: HttpRequest, responseHeaders: HttpResponseHeaders) -> HttpResponse {
-        let sem = DispatchSemaphore(value : 0)
         var destinationPath = "\(self.destinationServer)\(originalRequest.path)"
+        if let delay = self.delay {
+            Logger.v(self.logTag, "Got new request to \(destinationPath), starting delay \(Int(delay))s")
+            let semDelay = DispatchSemaphore(value : 0)
+            _ = semDelay.wait(timeout:.now() + delay)
+            Logger.e(self.logTag, "Delay finished")
+        }
+        let sem = DispatchSemaphore(value : 0)
         let paramQuery = originalRequest.queryParams.map { "\($0.0)=\($0.1)" }.joined(separator: "&")
         if !paramQuery.isEmpty {
             destinationPath.append("?")
