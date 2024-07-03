@@ -52,7 +52,7 @@ class ProxyServer {
             Logger.e(self.logTag, "Delay finished")
         }
         let sem = DispatchSemaphore(value : 0)
-        let paramQuery = originalRequest.queryParams.map { "\($0.0)=\($0.1)" }.joined(separator: "&")
+        let paramQuery = originalRequest.queryParams.list.map { "\($0.0)=\($0.1)" }.joined(separator: "&")
         if !paramQuery.isEmpty {
             destinationPath.append("?")
             destinationPath.append(paramQuery)
@@ -65,10 +65,10 @@ class ProxyServer {
         var finalResponse: HttpResponse = .serviceUnavailable
         if let url = URL(string: destinationPath) {
             logBuffer.append("\n\(originalRequest.method) \(destinationPath)")
-            let headersString = originalRequest.headers.map { "\($0.key) = \($0.value)" }.joined(separator: "\n\t")
+            let headersString = originalRequest.headers.dict.map { "\($0.key) = \($0.value)" }.joined(separator: "\n\t")
             logBuffer.append("\n➡️: Request headers: \n{\n\t\(headersString)\n}")
-            trafficData.requestHeaders = originalRequest.headers
-            let body = Data(originalRequest.body)
+            trafficData.requestHeaders = originalRequest.headers.dict
+            let body = originalRequest.body.data
             if let bodyString = String(data: body, encoding: .utf8) {
                 trafficData.requestBody = bodyString.prettyJSON
                 if bodyString.isEmpty {
@@ -82,9 +82,9 @@ class ProxyServer {
             }
             var request = URLRequest(url: url)
             request.httpMethod = originalRequest.method.rawValue
-            request.allHTTPHeaderFields = self.prepareHttpHeaders(original: originalRequest.headers)
+            request.allHTTPHeaderFields = self.prepareHttpHeaders(original: originalRequest.headers.dict)
             
-            request.httpBody = Data(originalRequest.body)
+            request.httpBody = originalRequest.body.data
             URLSession.shared.dataTask(with: request) { [weak sem, weak self] data, response, error in
                 if let error = error {
                     logBuffer.append("\n➡️: Response error: \(error)")

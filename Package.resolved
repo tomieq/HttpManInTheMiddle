@@ -1,16 +1,14 @@
 {
-  "object": {
-    "pins": [
-      {
-        "package": "Swifter",
-        "repositoryURL": "https://github.com/tomieq/swifter.git",
-        "state": {
-          "branch": null,
-          "revision": "73feab404a16df1f9d66ebaa4d75e76aa19927a6",
-          "version": "1.5.6"
-        }
+  "pins" : [
+    {
+      "identity" : "swifter",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/tomieq/swifter.git",
+      "state" : {
+        "branch" : "develop",
+        "revision" : "af38a0c45d76c85a82c1d813060ea7f023e47a20"
       }
-    ]
-  },
-  "version": 1
+    }
+  ],
+  "version" : 2
 }
